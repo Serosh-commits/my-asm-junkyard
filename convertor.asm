@@ -1,246 +1,196 @@
 section .data
     number: dq 181
-    bin_label: db "Binary: ", 0
-    bin_len: equ $ - bin_label
-    hex_label: db "Hex: 0x", 0
-    hex_len: equ $ - hex_label
-    dec_label: db "Decimal: ", 0
-    dec_len: equ $ - dec_label
-    neg_label: db "Negated: ", 0
-    neg_len: equ $ - neg_label
+
+    bin_label: db "Binary: "
+    bin_label_len: equ $ - bin_label
+    hex_label: db "Hex: 0x"
+    hex_label_len: equ $ - hex_label
+    dec_label: db "Decimal: "
+    dec_label_len: equ $ - dec_label
+    neg_label: db "Negated: 0x"
+    neg_label_len: equ $ - neg_label
     newline: db 10
     hex_chars: db "0123456789ABCDEF"
-    endian_label: db "Endianness demo — value 0x12345678 in memory: ", 0
-    endian_len: equ $ - endian_label
+
     endian_val: dd 0x12345678
-    endian_msg: db " (little-endian: least significant byte first!)", 10, 0
-    endian_msg_len: equ $ - endian_msg
-    twos_label: db 10, "Two's Complement ", 10, 0
-    twos_len: equ $ - twos_label
-    separator: db 10, "Number Converter", 10, 0
-    sep_len: equ $ - separator
-    endian_sep: db 10, "Endianness Demo", 10, 0
-    endian_sep_len: equ $ - endian_sep
+    endian_label: db "Endian: 0x12345678 stored as bytes: "
+    endian_lbl_len: equ $ - endian_label
+    endian_note: db " (little-endian)", 10
+    endian_note_len: equ $ - endian_note
+
+    hdr_main: db 10, "Number Converter", 10
+    hdr_main_len: equ $ - hdr_main
+    hdr_twos: db 10, "Two's Complement", 10
+    hdr_twos_len: equ $ - hdr_twos
+    hdr_endian: db 10, "Endianness", 10
+    hdr_endian_len: equ $ - hdr_endian
 
 section .bss
-    bin_buf: resb 65
-    hex_buf: resb 17
-    dec_buf: resb 21
-    byte_buf: resb 32
+    bin_buf: resb 64
+    hex_buf: resb 16
+    dec_buf: resb 20
+    byte_buf: resb 12
 
 section .text
     global _start
 
-_start:
+_write:
     mov rax, 1
     mov rdi, 1
-    lea rsi, [rel separator]
-    mov rdx, sep_len
     syscall
+    ret
 
+_to_hex:
+    lea rdi, [rel hex_buf]
+    lea rbx, [rel hex_chars]
+    mov rcx, 16
+.loop:
+    rol rax, 4
+    mov rdx, rax
+    and edx, 0x0F
+    mov dl, [rbx + rdx]
+    mov [rdi], dl
+    inc rdi
+    dec rcx
+    jnz .loop
+    ret
+
+_start:
     mov r12, [rel number]
 
-    ; Binary
-    mov rax, 1
-    mov rdi, 1
+    lea rsi, [rel hdr_main]
+    mov rdx, hdr_main_len
+    call _write
+
     lea rsi, [rel bin_label]
-    mov rdx, bin_len
-    syscall
+    mov rdx, bin_label_len
+    call _write
 
     mov rax, r12
     lea rdi, [rel bin_buf]
     mov rcx, 64
 .bin_loop:
     rol rax, 1
-    jc .bin_one
-    mov byte [rdi], '0'
-    jmp .bin_next
-.bin_one:
-    mov byte [rdi], '1'
-.bin_next:
+    setc dl
+    add dl, '0'
+    mov [rdi], dl
     inc rdi
     dec rcx
     jnz .bin_loop
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel bin_buf]
     mov rdx, 64
-    syscall
+    call _write
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel newline]
     mov rdx, 1
-    syscall
+    call _write
 
-    ; Hex
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel hex_label]
-    mov rdx, hex_len
-    syscall
+    mov rdx, hex_label_len
+    call _write
 
     mov rax, r12
-    lea rdi, [rel hex_buf]
-    mov rcx, 16
-.hex_loop:
-    rol rax, 4
-    mov rdx, rax
-    and rdx, 0x0F
-    lea rbx, [rel hex_chars]
-    mov dl, [rbx + rdx]
-    mov [rdi], dl
-    inc rdi
-    dec rcx
-    jnz .hex_loop
+    call _to_hex
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel hex_buf]
     mov rdx, 16
-    syscall
+    call _write
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel newline]
     mov rdx, 1
-    syscall
+    call _write
 
-    ; Decimal
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel dec_label]
-    mov rdx, dec_len
-    syscall
+    mov rdx, dec_label_len
+    call _write
 
     mov rax, r12
     lea rdi, [rel dec_buf + 20]
-    mov rcx, 0
+    xor ecx, ecx
     test rax, rax
     jnz .dec_loop
     dec rdi
     mov byte [rdi], '0'
-    inc rcx
-    jmp .dec_print
+    inc ecx
+    jmp .dec_done
 .dec_loop:
     test rax, rax
-    jz .dec_print
-    xor rdx, rdx
+    jz .dec_done
+    xor edx, edx
     mov rbx, 10
     div rbx
     add dl, '0'
     dec rdi
     mov [rdi], dl
-    inc rcx
+    inc ecx
     jmp .dec_loop
-.dec_print:
-    mov rax, 1
-    mov rdx, rcx
+.dec_done:
     mov rsi, rdi
+    mov rdx, rcx
     mov rdi, 1
+    mov rax, 1
     syscall
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel newline]
     mov rdx, 1
-    syscall
+    call _write
 
-    ; Two's Complement
-    mov rax, 1
-    mov rdi, 1
-    lea rsi, [rel twos_label]
-    mov rdx, twos_len
-    syscall
+    lea rsi, [rel hdr_twos]
+    mov rdx, hdr_twos_len
+    call _write
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel neg_label]
-    mov rdx, neg_len
-    syscall
+    mov rdx, neg_label_len
+    call _write
 
     mov rax, r12
     neg rax
-    push rax
+    call _to_hex
 
-    mov rax, 1
-    mov rdi, 1
-    lea rsi, [rel hex_label + 9]
-    mov rdx, 2
-    syscall
-
-    pop rax
-
-    lea rdi, [rel hex_buf]
-    mov rcx, 16
-.neg_hex_loop:
-    rol rax, 4
-    mov rdx, rax
-    and rdx, 0x0F
-    lea rbx, [rel hex_chars]
-    mov dl, [rbx + rdx]
-    mov [rdi], dl
-    inc rdi
-    dec rcx
-    jnz .neg_hex_loop
-
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel hex_buf]
     mov rdx, 16
-    syscall
+    call _write
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel newline]
     mov rdx, 1
-    syscall
+    call _write
 
-    ; Endianness
-    mov rax, 1
-    mov rdi, 1
-    lea rsi, [rel endian_sep]
-    mov rdx, endian_sep_len
-    syscall
+    lea rsi, [rel hdr_endian]
+    mov rdx, hdr_endian_len
+    call _write
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel endian_label]
-    mov rdx, endian_len
-    syscall
+    mov rdx, endian_lbl_len
+    call _write
 
     lea r13, [rel endian_val]
     lea rdi, [rel byte_buf]
-    mov rcx, 4
+    lea rbx, [rel hex_chars]
+    mov ecx, 4
 .endian_loop:
     movzx eax, byte [r13]
-    mov rdx, rax
-    shr rdx, 4
-    lea rbx, [rel hex_chars]
+    mov edx, eax
+    shr edx, 4
     mov dl, [rbx + rdx]
     mov [rdi], dl
-    mov rdx, rax
-    and rdx, 0x0F
+    mov edx, eax
+    and edx, 0x0F
     mov dl, [rbx + rdx]
     mov [rdi + 1], dl
     mov byte [rdi + 2], ' '
     add rdi, 3
     inc r13
-    dec rcx
+    dec ecx
     jnz .endian_loop
 
-    mov rax, 1
-    mov rdi, 1
     lea rsi, [rel byte_buf]
     mov rdx, 12
-    syscall
+    call _write
 
-    mov rax, 1
-    mov rdi, 1
-    lea rsi, [rel endian_msg]
-    mov rdx, endian_msg_len
-    syscall
+    lea rsi, [rel endian_note]
+    mov rdx, endian_note_len
+    call _write
 
     mov rax, 60
     xor edi, edi
