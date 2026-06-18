@@ -1,4 +1,4 @@
-%include "lib/io.inc"
+%include "io.inc"
 
 section .rodata
     DEFSTR hdr,   10, "control flow ", 10
